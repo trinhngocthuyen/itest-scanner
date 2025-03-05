@@ -5,7 +5,9 @@ A CLI tool to scan tests in an iOS project.
 ## Installation
 
 ### Homebrew
-TBU
+```sh
+brew install trinhngocthuyen/brew/itest-scanner
+```
 
 ### Build From Source
 
