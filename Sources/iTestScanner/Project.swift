@@ -13,8 +13,8 @@ struct Project {
   }
 
   init(root: String, derivedDataPath: String? = nil) {
-    self.root = URL(filePath: NSString(string: root).expandingTildeInPath)
-    self.derivedDataPath = derivedDataPath.map { URL(filePath: $0) }
+    self.root = URL(filePath: NSString(string: root).expandingTildeInPath).absoluteURL
+    self.derivedDataPath = derivedDataPath.map { URL(filePath: $0).absoluteURL }
     resolve()
   }
 

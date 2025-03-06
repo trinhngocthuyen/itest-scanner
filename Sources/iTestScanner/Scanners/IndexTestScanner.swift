@@ -26,12 +26,14 @@ final class IndexTestScanner: BaseTestScanner {
       throw: IndexTestScannerError.indexStoreNotFound,
       "Cannot find index in derived data: \(derivedDataPath).\nPossibly indexing is not yet triggered, or in-progress"
     )
+    let indexDBURL = indexStoreURL.parent().appending(path: "test_scanner_db").deletingIfExist()
+
     logger.debug("Load index from: \(indexStoreURL)")
     let xcodeSelectPath = try sh.run("xcode-select -p").out
     let indexStoreDylibPath = "\(xcodeSelectPath)/Toolchains/XcodeDefault.xctoolchain/usr/lib/libIndexStore.dylib"
     let this = try IndexStoreDB(
       storePath: indexStoreURL.path(),
-      databasePath: indexStoreURL.parent().appending(path: "test_scanner_db").path(),
+      databasePath: indexDBURL.path(),
       library: .init(dylibPath: indexStoreDylibPath)
     )
     this.pollForUnitChangesAndWait()
@@ -76,16 +78,18 @@ final class IndexTestScanner: BaseTestScanner {
       return nil
     }
 
+    // We only care about functions & instance methods.
+    // Also, symbols ending with `fMu_()` are excluded as they are of expanded forms.
     let symbols = index
       .symbols(inFilePath: definition.location.path)
-      .filter { [.function, .instanceMethod].contains($0.kind) }
+      .filter { symbol in [.function, .instanceMethod].contains(symbol.kind) }
+      .filter { symbol in !symbol.name.hasSuffix("fMu_()") }
     let toMatch = String(name.split(separator: Self.TEST_MACRO_TOKEN).last ?? "")
       .replacing(#/func(.*)fMu_/#) { m in m.output.1 }
+      .replacing(#/(.*)async/#) { m in m.output.1 }
+      .replacing(#/(.*)throws/#) { m in m.output.1 }
     return symbols.first { symbol in
-      if let pattern = try? patternize(fn: symbol.name) {
-        return toMatch.firstMatch(of: pattern) != nil
-      }
-      return false
+      (try? toMatch.contains(patternize(fn: symbol.name))) ?? false
     }
   }
 
