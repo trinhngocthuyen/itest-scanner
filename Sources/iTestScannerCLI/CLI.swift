@@ -16,11 +16,15 @@ struct CLI: ParsableCommand {
   @Flag(name: .shortAndLong, help: "Quiet")
   var quiet: Bool = false
 
+  @Option(name: .shortAndLong, help: "Strategy (auto/spm/index) (default: auto)")
+  var strategy: String?
+
   mutating func run() throws {
     let tests = try scanTests(
       in: projectRoot,
       derivedDataPath: derivedDataPath,
-      quiet: quiet
+      quiet: quiet,
+      strategy: strategy
     )
     try dumpResults(tests)
   }
