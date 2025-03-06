@@ -42,3 +42,15 @@ extension Optional {
     throw error
   }
 }
+
+extension Sequence where Element: Hashable {
+  func toSet() -> Set<Element> {
+    Set(self)
+  }
+}
+
+extension Sequence {
+  func toSet<T: Hashable>(_ f: (Element) -> T) -> Set<T> {
+    map(f).toSet()
+  }
+}

@@ -42,20 +42,16 @@ final class IndexTestScanner: BaseTestScanner {
 
   private func getXCTestIdentifiers() -> [String] {
     guard let index else { return [] }
-    return index.unitTests()
-      .filter { [.function, .instanceMethod].contains($0.symbol.kind) }
+    return index.xctestSymbolOccurrences()
       .map { definitionToIdentifier($0) }
       .map { $0.replacingOccurrences(of: "()", with: "") } // XCTest identifiers do not have parentheses at the end
   }
 
   private func getSwiftTestingIdetifiers() -> [String] {
     guard let index else { return [] }
-    let names = index.allSymbolNames().filter { $0.contains("__🟠$test_container__function__") }
-    return names.compactMap { name in
-      findMacroSymbol(name: name, index: index)
-        .flatMap { index.definition(of: $0) }
-        .map { definitionToIdentifier($0) }
-    }
+    return index
+      .swiftTestingSymbolOccurrences()
+      .map { definitionToIdentifier($0) }
   }
 
   private func definitionToIdentifier(_ def: SymbolOccurrence) -> String {
@@ -66,47 +62,5 @@ final class IndexTestScanner: BaseTestScanner {
       return "\(def.location.moduleName)/\(ctx.name)/\(def.symbol.name)"
     }
     return "\(def.location.moduleName)/\(def.symbol.name)"
-  }
-
-  static let TEST_MACRO_TOKEN = "__🟠$test_container__function__"
-
-  private func findMacroSymbol(name: String, index: IndexStoreDB) -> Symbol? {
-    assert(name.contains(Self.TEST_MACRO_TOKEN))
-
-    guard let definition = index.definition(of: name) else {
-      logger.error("Cannot find definition of: \(name)")
-      return nil
-    }
-
-    // We only care about functions & instance methods.
-    // Also, symbols ending with `fMu_()` are excluded as they are of expanded forms.
-    let symbols = index
-      .symbols(inFilePath: definition.location.path)
-      .filter { symbol in [.function, .instanceMethod].contains(symbol.kind) }
-      .filter { symbol in !symbol.name.hasSuffix("fMu_()") }
-    let toMatch = String(name.split(separator: Self.TEST_MACRO_TOKEN).last ?? "")
-      .replacing(#/func(.*)fMu_/#) { m in m.output.1 }
-      .replacing(#/(.*)async/#) { m in m.output.1 }
-      .replacing(#/(.*)throws/#) { m in m.output.1 }
-    return symbols.first { symbol in
-      (try? toMatch.contains(patternize(fn: symbol.name))) ?? false
-    }
-  }
-
-  private var cachedPatterns: [String: Regex<AnyRegexOutput>] = [:]
-  private func patternize(fn: String) throws -> Regex<AnyRegexOutput> {
-    if let cache = cachedPatterns[fn] { return cache }
-    let pattern = fn
-      .replacing("_:", with: String("\\S+_\\S+"))
-      .replacing(":", with: String("_\\S+"))
-      .replacing(#/[\(\)]/#, with: "_")
-    do {
-      let regex = try Regex("\(pattern)$")
-      cachedPatterns[fn] = regex
-      return regex
-    } catch {
-      logger.error("Fail to create regex with \(pattern): \(error)")
-      throw error
-    }
   }
 }
