@@ -22,6 +22,15 @@ extension URL {
   func glob(_ pattern: String) -> [URL] {
     globWithPattern("\(path().withoutEndingSplash)/\(pattern)").compactMap(URL.init)
   }
+
+  var exists: Bool {
+    FileManager.default.fileExists(atPath: path())
+  }
+
+  func deletingIfExist() -> URL {
+    if exists { try? FileManager.default.removeItem(at: self) }
+    return self
+  }
 }
 
 extension Optional {
