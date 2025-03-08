@@ -21,20 +21,22 @@ extension IndexStoreDB {
     swiftTestingSymbolNames().compactMap { definition(ofUniqueName: $0) }
   }
 
-  func swiftTestingMacroRelation(attachedTo symbol: Symbol) -> SymbolRelation? {
-    let macroOccurrence = occurrences(relatedToUSR: symbol.usr, roles: .containedBy)
-      .first { occ in occ.symbol.name.hasPrefix("Test(") && occ.symbol.kind == .macro }
-    return macroOccurrence?.relations.first { occ in occ.roles.contains(.containedBy) }
-  }
-
   func swiftTestingSymbolOccurrences() -> [SymbolOccurrence] {
     swiftTestingDefinitions()
       .toSet { $0.location.path }
       .flatMap { path in
         symbols(inFilePath: path).compactMap { symbol in
-          let attachedSymbol = swiftTestingMacroRelation(attachedTo: symbol)?.symbol
-          return attachedSymbol.flatMap { definition(of: $0) }
+          if occurrences(relatedToUSR: symbol.usr, roles: .containedBy).hasTestMacro() {
+            return definition(of: symbol)
+          }
+          return nil
         }
       }
+  }
+}
+
+extension Sequence<SymbolOccurrence> {
+  func hasTestMacro() -> Bool {
+    contains { $0.symbol.kind == .macro && $0.symbol.name.hasPrefix("Test(") }
   }
 }
